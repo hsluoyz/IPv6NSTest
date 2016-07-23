@@ -1,54 +1,42 @@
 
+#include <winsock2.h>
+#include <ws2ipdef.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "windivert.h"
-
 int main()
 {
-	HANDLE handle;
-	
-	WINDIVERT_ADDRESS addr;
-	addr.IfIdx = 1;
-	addr.SubIfIdx = 1;
-	addr.Direction = WINDIVERT_DIRECTION_OUTBOUND;
+	WSADATA wsa = { 0 };
+	WSAStartup(MAKEWORD(2, 2), &wsa);
 
-	// Divert traffic matching the filter:
-	handle = WinDivertOpen("true", WINDIVERT_LAYER_NETWORK, 0, 0);
-	if (handle == INVALID_HANDLE_VALUE)
-	{
-		if (GetLastError() == ERROR_INVALID_PARAMETER)
-		{
-			printf("error: filter syntax error\n");
-			//exit(EXIT_FAILURE);
-			return -1;
-		}
-		printf("error: failed to open the WinDivert device (%d)\n",
-			GetLastError());
-		//exit(EXIT_FAILURE);
-		return -1;
-	}
+	int nRet;
 
-	unsigned char packet[] = {
-		0x60, 0x01,
-		0x23, 0x45, 0x00, 0x18, 0x3a, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x87, 0x00, 0x78, 0xaa, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	SOCKET sRaw = ::socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+
+	SOCKADDR_IN6 dest = { 0 };
+	dest.sin6_family = AF_INET6;
+	dest.sin6_flowinfo = 0x12345;
+	struct in6_addr in6AnyAddr = IN6ADDR_LOOPBACK_INIT;
+	dest.sin6_addr = in6AnyAddr;
+
+	int iHopLimit = 255;
+	setsockopt(sRaw, IPPROTO_IPV6, IPV6_UNICAST_HOPS, (char *) &iHopLimit, sizeof(iHopLimit));
+
+	char packet[] = {
+		0x87, 0x00, 0x78, 0xaa, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
 	};
 	UINT packet_len = sizeof(packet);
 
-	WinDivertHelperCalcChecksums(packet, packet_len, 0);
-
-	if (!WinDivertSend(handle, packet, packet_len, &addr, NULL))
+	nRet = ::sendto(sRaw, packet, packet_len, 0, (SOCKADDR *)&dest, sizeof(dest));
+	if (nRet == SOCKET_ERROR)
 	{
-		printf("warning: failed to inject packet (%d)\n", GetLastError());
+		printf("sendto() failed: %d /n", ::WSAGetLastError());
+		return -1;
 	}
 
-	WinDivertClose(handle);
-
 	printf("Success!\n");
-	//system("pause");
 
 	return 0;
 }
