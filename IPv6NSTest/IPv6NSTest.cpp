@@ -14,7 +14,7 @@ int main()
 
 	int nRet;
 
-	SOCKET sRaw = ::socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+	SOCKET sRaw = ::socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	if (sRaw == INVALID_SOCKET)
 	{
 		iErrorCode = ::WSAGetLastError();
@@ -24,14 +24,13 @@ int main()
 		return -1;
 	}
 
-	SOCKADDR_IN6 dest = { 0 };
-	dest.sin6_family = AF_INET6;
-	dest.sin6_flowinfo = 0x12345;
-	struct in6_addr in6AnyAddr = IN6ADDR_LOOPBACK_INIT;
-	dest.sin6_addr = in6AnyAddr;
+	SOCKADDR_IN dest = { 0 };
+	dest.sin_family = AF_INET;
+	struct in_addr inAnyAddr = in4addr_loopback;
+	dest.sin_addr = inAnyAddr;
 
-	int iHopLimit = 255;
-	nRet = setsockopt(sRaw, IPPROTO_IPV6, IPV6_UNICAST_HOPS, (char *) &iHopLimit, sizeof(iHopLimit));
+	int iHopLimit = 64;
+	nRet = setsockopt(sRaw, IPPROTO_IP, IPV6_UNICAST_HOPS, (char *) &iHopLimit, sizeof(iHopLimit));
 	if (nRet != 0)
 	{
 		closesocket(sRaw);
@@ -43,8 +42,8 @@ int main()
 	}
 
 	char packet[] = {
-		0x87, 0x00, 0x78, 0xaa, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+		//0x08, 0x00, 0x06, 0x0b, 0xf1, 0xf3, 0x00, 0x01
+		0x00, 0x00, 0xc6, 0x8a, 0x39, 0x74, 0x00, 0x01
 	};
 	UINT packet_len = sizeof(packet);
 
